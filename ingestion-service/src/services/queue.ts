@@ -1,5 +1,6 @@
 import amqp from 'amqplib';
 import { QueueMessage, NotificationType } from '../types/index.js';
+import { env } from '../@config/env.js';
 
 class QueueService {
   // Using 'any' to avoid amqplib type compatibility issues between versions
@@ -20,7 +21,7 @@ class QueueService {
   static readonly EXCHANGE = 'notifications.exchange';
 
   constructor() {
-    this.url = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+    this.url = env.RABBITMQ_URL;
   }
 
   async connect(): Promise<void> {
@@ -29,7 +30,6 @@ class QueueService {
       this.connection = await amqp.connect(this.url);
       this.channel = await this.connection.createChannel();
 
-      // Set up connection error handlers
       this.connection.on('error', (err: Error) => {
         console.error('RabbitMQ connection error:', err.message);
         this.handleDisconnect();
@@ -40,7 +40,6 @@ class QueueService {
         this.handleDisconnect();
       });
 
-      // Set up exchange and queues
       await this.setupExchangeAndQueues();
       console.log('Connected to RabbitMQ successfully');
     } catch (error) {

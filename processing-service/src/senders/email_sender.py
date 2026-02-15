@@ -1,6 +1,4 @@
-"""
-Email Sender - Mock implementation for sending emails
-"""
+
 import random
 import os
 from typing import Dict, Any

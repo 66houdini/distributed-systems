@@ -1,15 +1,12 @@
-"""
-Retry Handler - Implements exponential backoff retry strategy
-"""
+
 import time
 from typing import Callable, Any, Optional
 from functools import wraps
 
 
-# Retry configuration
 MAX_RETRIES = 5
-BASE_DELAY = 1  # Base delay in seconds
-MAX_DELAY = 16  # Maximum delay between retries
+BASE_DELAY = 1  
+MAX_DELAY = 16  
 
 
 def calculate_backoff_delay(retry_count: int) -> float:
@@ -43,12 +40,12 @@ def with_retry(func: Callable) -> Callable:
                 return func(*args, **kwargs)
             except Exception as e:
                 if not should_retry(retry_count):
-                    print(f"❌ Max retries ({MAX_RETRIES}) exceeded. Giving up.")
+                    print(f"Max retries ({MAX_RETRIES}) exceeded. Giving up.")
                     raise
                 
                 delay = calculate_backoff_delay(retry_count)
-                print(f"⚠️ Attempt {retry_count + 1} failed: {e}")
-                print(f"🔄 Retrying in {delay}s... (attempt {retry_count + 2}/{MAX_RETRIES + 1})")
+                print(f"Attempt {retry_count + 1} failed: {e}")
+                print(f"Retrying in {delay}s... (attempt {retry_count + 2}/{MAX_RETRIES + 1})")
                 
                 time.sleep(delay)
                 retry_count += 1
@@ -75,15 +72,12 @@ class RetryableMessage:
         self.max_retries = max_retries
     
     def can_retry(self) -> bool:
-        """Check if this message can be retried."""
         return self.retry_count < self.max_retries
     
     def get_backoff_delay(self) -> float:
-        """Get the backoff delay for the current retry."""
         return calculate_backoff_delay(self.retry_count)
     
     def increment_retry(self) -> 'RetryableMessage':
-        """Return a new RetryableMessage with incremented retry count."""
         return RetryableMessage(
             message_id=self.message_id,
             message_type=self.message_type,

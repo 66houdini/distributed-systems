@@ -1,6 +1,4 @@
-"""
-Consumer - RabbitMQ message consumer with idempotency and retry logic
-"""
+
 import json
 import os
 from typing import Dict, Any, Callable
@@ -57,7 +55,6 @@ def process_message(
     - Dead letter queue for failed messages
     """
     try:
-        # Parse message
         message_data = json.loads(body.decode('utf-8'))
         
         message_id = message_data.get('id')
@@ -67,30 +64,26 @@ def process_message(
         payload = message_data.get('payload')
         retry_count = message_data.get('retryCount', 0)
         
-        # Get retry count from headers if available
         if properties.headers and 'x-retry-count' in properties.headers:
             retry_count = properties.headers['x-retry-count']
         
         print(f"\n{'='*50}")
-        print(f"📥 Received message: {message_id}")
+        print(f" Received message: {message_id}")
         print(f"   Type: {message_type}")
         print(f"   User: {user_id}")
         print(f"   Retry count: {retry_count}")
         
-        # Idempotency check
         if check_idempotency(user_id, idempotency_key):
-            print(f"⏭️ Duplicate message detected. Skipping processing.")
+            print(f" Duplicate message detected. Skipping processing.")
             channel.basic_ack(delivery_tag=method.delivery_tag)
             return
         
-        # Get the appropriate sender
         sender = SENDERS.get(message_type)
         if not sender:
-            print(f"❌ Unknown message type: {message_type}")
+            print(f" Unknown message type: {message_type}")
             channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             return
         
-        # Create retryable message
         retryable = RetryableMessage(
             message_id=message_id,
             message_type=message_type,
@@ -98,25 +91,21 @@ def process_message(
             retry_count=retry_count
         )
         
-        # Attempt to send notification
         try:
             sender(payload)
             
-            # Mark as processed for idempotency
             mark_as_processed(user_id, idempotency_key)
             
-            print(f"✅ Message {message_id} processed successfully")
+            print(f" Message {message_id} processed successfully")
             channel.basic_ack(delivery_tag=method.delivery_tag)
             
         except Exception as send_error:
-            print(f"❌ Failed to send notification: {send_error}")
+            print(f" Failed to send notification: {send_error}")
             
             if retryable.can_retry():
-                # Schedule retry with backoff
                 delay = retryable.get_backoff_delay()
-                print(f"🔄 Scheduling retry in {delay}s (attempt {retry_count + 2}/{MAX_RETRIES + 1})")
+                print(f" Scheduling retry in {delay}s (attempt {retry_count + 2}/{MAX_RETRIES + 1})")
                 
-                # Republish with incremented retry count
                 new_message = retryable.increment_retry()
                 new_body = json.dumps({
                     **message_data,
@@ -141,23 +130,40 @@ def process_message(
                 
             else:
                 # Max retries exceeded - move to DLQ
-                print(f"💀 Max retries exceeded. Moving to Dead Letter Queue.")
+                print(f" Max retries exceeded. Moving to Dead Letter Queue.")
                 # Reject without requeue - will go to DLQ via x-dead-letter-exchange
                 channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         
     except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON in message: {e}")
+        print(f" Invalid JSON in message: {e}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        print(f"❌ Unexpected error processing message: {e}")
+        print(f" Unexpected error processing message: {e}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
 def start_consuming(channel: pika.channel.Channel, queues: list) -> None:
     """
     Start consuming messages from the specified queues.
+    Declares all exchanges and queues to ensure they exist.
     """
-    # Set prefetch count to process one message at a time
+    channel.exchange_declare(exchange='notifications.dlx', exchange_type='direct', durable=True)
+    channel.queue_declare(queue='notifications.dlq', durable=True)
+    channel.queue_bind(queue='notifications.dlq', exchange='notifications.dlx', routing_key='dead')
+
+    channel.exchange_declare(exchange='notifications.exchange', exchange_type='direct', durable=True)
+
+    queue_args = {
+        'x-dead-letter-exchange': 'notifications.dlx',
+        'x-dead-letter-routing-key': 'dead',
+    }
+
+    routing_keys = {'notifications.email': 'email', 'notifications.sms': 'sms', 'notifications.push': 'push'}
+    for queue_name, routing_key in routing_keys.items():
+        channel.queue_declare(queue=queue_name, durable=True, arguments=queue_args)
+        channel.queue_bind(queue=queue_name, exchange='notifications.exchange', routing_key=routing_key)
+        print(f" Declared queue: {queue_name}")
+
     channel.basic_qos(prefetch_count=1)
     
     for queue in queues:
@@ -166,7 +172,8 @@ def start_consuming(channel: pika.channel.Channel, queues: list) -> None:
             on_message_callback=process_message,
             auto_ack=False
         )
-        print(f"👂 Listening to queue: {queue}")
+        print(f" Listening to queue: {queue}")
     
-    print("\n🚀 Consumer started. Waiting for messages...")
+    print("\n Consumer started. Waiting for messages...")
     channel.start_consuming()
+

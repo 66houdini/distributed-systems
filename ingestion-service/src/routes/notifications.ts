@@ -39,7 +39,6 @@ async function handleNotification(
   schema: ZodSchema
 ): Promise<void> {
   try {
-    // Validate request body
     const validatedData = validateRequest(schema, req.body);
     const { userId, idempotencyKey, payload } = validatedData as {
       userId: string;
@@ -47,10 +46,8 @@ async function handleNotification(
       payload: EmailPayload | SmsPayload | PushPayload;
     };
 
-    // Generate unique message ID
     const messageId = uuidv4();
 
-    // Create queue message
     const message: QueueMessage = {
       id: messageId,
       type,
@@ -61,21 +58,18 @@ async function handleNotification(
       retryCount: 0,
     };
 
-    // Publish to queue
     const published = await queueService.publish(type, message);
 
     if (!published) {
       throw new Error('Failed to publish message to queue');
     }
 
-    // Create response
     const response: NotificationResponse = {
       id: messageId,
       status: 'queued',
       message: `${type} notification queued successfully`,
     };
 
-    // Store idempotency response for future duplicate detection
     await storeIdempotencyResponse(userId, idempotencyKey, response);
 
     res.status(202).json({

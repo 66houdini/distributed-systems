@@ -1,12 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import Redis from 'ioredis';
 import { NotificationResponse } from '../types/index.js';
+import { env } from '../@config/env.js';
 
-// Initialize Redis client
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(env.REDIS_URL);
 
-// Idempotency key TTL (24 hours in seconds)
-const IDEMPOTENCY_TTL = 24 * 60 * 60;
+const IDEMPOTENCY_TTL = env.IDEMPOTENCY_TTL;
 
 export interface IdempotencyRequest extends Request {
   idempotencyResult?: {
@@ -32,14 +31,11 @@ export async function idempotencyCheck(
       return;
     }
 
-    // Create a unique key combining user and idempotency key
     const redisKey = `idempotency:${userId}:${idempotencyKey}`;
 
-    // Check if this idempotency key already exists
     const existingResponse = await redis.get(redisKey);
 
     if (existingResponse) {
-      // Return cached response
       const cachedResponse: NotificationResponse = JSON.parse(existingResponse);
       
       req.idempotencyResult = {
@@ -58,7 +54,6 @@ export async function idempotencyCheck(
       return;
     }
 
-    // Mark as not duplicate, will be stored after successful processing
     req.idempotencyResult = {
       isDuplicate: false,
     };
@@ -66,7 +61,6 @@ export async function idempotencyCheck(
     next();
   } catch (error) {
     console.error('Idempotency check error:', error);
-    // On error, allow the request but log the issue
     next();
   }
 }
@@ -86,11 +80,9 @@ export async function storeIdempotencyResponse(
     await redis.setex(redisKey, IDEMPOTENCY_TTL, JSON.stringify(response));
   } catch (error) {
     console.error('Failed to store idempotency response:', error);
-    // Non-critical error, don't throw
   }
 }
 
-// Graceful shutdown
 export async function closeIdempotencyStore(): Promise<void> {
   await redis.quit();
 }

@@ -1,4 +1,4 @@
-# 🔔 Distributed Notification System
+# Distributed Notification System
 
 A microservices-based notification system for sending emails, SMS, and push notifications with rate limiting, retry mechanisms, and idempotency guarantees.
 
@@ -23,11 +23,11 @@ A microservices-based notification system for sending emails, SMS, and push noti
 
 ## Features
 
-- ⚡ **Rate Limiting** - Sliding window rate limiter (50 requests/hour per user)
-- 🔑 **Idempotency** - Prevents duplicate notifications on retry/redelivery
-- 🔄 **Exponential Backoff** - Retry delays: 1s → 2s → 4s → 8s → 16s
-- 💀 **Dead Letter Queue** - Failed messages after max retries for inspection
-- 🌐 **Polyglot** - Node.js/TypeScript + Python via RabbitMQ
+- **Rate Limiting** - Sliding window rate limiter (50 requests/hour per user)
+- **Idempotency** - Prevents duplicate notifications on retry/redelivery
+- **Exponential Backoff** - Retry delays: 1s → 2s → 4s → 8s → 16s
+- **Dead Letter Queue** - Failed messages after max retries for inspection
+- **Polyglot** - Node.js/TypeScript + Python via RabbitMQ
 
 ## Quick Start
 

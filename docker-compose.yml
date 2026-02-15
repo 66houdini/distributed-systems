@@ -38,6 +38,7 @@ services:
       context: ./ingestion-service
       dockerfile: Dockerfile
     container_name: notification-ingestion
+    restart: on-failure
     ports:
       - "3000:3000"
     environment:
@@ -60,6 +61,7 @@ services:
       context: ./processing-service
       dockerfile: Dockerfile
     container_name: notification-processing
+    restart: on-failure
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
